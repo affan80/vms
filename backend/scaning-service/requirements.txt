@@ -6,4 +6,4 @@ pyjwt
 bcrypt
 xmltodict
 requests
-
+networkx

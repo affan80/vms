@@ -113,3 +113,27 @@ def save_metrics(device_id, degree, betweenness):
     cur.close()
     conn.close()
 
+def save_cve_risk(device_id, service, cve_id, cvss, risk_score):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO cve_risks (device_id, service, cve_id, cvss, risk_score)
+        VALUES (%s, %s, %s, %s, %s)
+    """, (device_id, service, cve_id, cvss, risk_score))
+    conn.commit()
+    cur.close()
+    conn.close()
+
+
+def save_attack_path(src_id, dst_id, path, probability):
+    conn = get_db()
+    cur = conn.cursor()
+    cur.execute("""
+        INSERT INTO attack_paths
+        (source_device, target_device, path, attack_probability)
+        VALUES (%s, %s, %s, %s)
+    """, (src_id, dst_id, path, probability))
+    conn.commit()
+    cur.close()
+    conn.close()
+

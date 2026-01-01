@@ -1,13 +1,26 @@
 import nmap
 
-scanner = nmap.PortScanner()
-target = "scanme.nmap.org"
-scanner.scan(target)
-for host in scanner.all_hosts():
-    print("Host: ", host)
-    print("State: ", scanner[host].state())
-    for proto in scanner[host].all_protocols():
-        print("Protocol: ", proto)
-        ports = scanner[host][proto].keys()
-        for port in ports:
-            print("Port: ", port, "State: ", scanner[host][proto][port]['state'])
+def scan_router(ip):
+    nm = nmap.PortScanner()
+    nm.scan(ip, arguments="-sT -p 22,23,80,443")
+
+    open_ports = []
+    neighbors = []
+
+    if ip not in nm.all_hosts():
+        return None
+
+    for proto in nm[ip].all_protocols():
+        for port in nm[ip][proto]:
+            open_ports.append(port)
+
+            if port in [22, 80, 443]:
+                neighbors.append(f"{ip}-mgmt")
+
+    return {
+        "ip": ip,
+        "type": "router",
+        "ports": open_ports,
+        "neighbors": neighbors
+    }
+

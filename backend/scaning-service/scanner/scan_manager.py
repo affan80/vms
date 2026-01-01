@@ -1,56 +1,57 @@
-from router.router_scan import scan_router
-from switch.switch_scan import scan_switch
-from graph.network_graph import NetworkGraph
-from database.queries import (
-    create_device,
-    save_scan_result,
-    save_edge,
-    save_metrics
-)
+from scanner.router.nmap_scan import scan_router
+from scanner.switch.switch_nmap_scan import scan_switch
+from devices.device_manager import process_device
+from reports.report_manager import build_final_report
 
-def scan_network(devices):
-    graph = NetworkGraph()
-    device_id_map = {}
+def run_scan(devices):
+    """
+    Master scan function for Routers & Switches
 
-    # Scan & build graph
-    for d in devices:
-        ip = d["ip"]
-        dtype = d["type"]
+    devices = [
+        {"ip": "192.168.1.1", "type": "router"},
+        {"ip": "192.168.1.2", "type": "switch"}
+    ]
+    """
+    router_results = []
+    switch_results = []
 
-        graph.add_device(ip, dtype)
+    # Separate devices by type
+    routers = [d for d in devices if d.get("type") == "router"]
+    switches = [d for d in devices if d.get("type") == "switch"]
 
-        if dtype == "router":
-            result = scan_router(ip)
-        else:
-            result = scan_switch(ip)
-
-        if not result:
+    # Scan Routers
+    for r in routers:
+        ip = r.get("ip")
+        if not ip:
             continue
 
-        device_id = get_or_create_device(ip, dtype)
-        device_id_map[ip] = device_id
+        result = scan_router(ip)
+        if result:
+            router_results.append(result)
 
-        save_scan_result(device_id, result["ports"])
+    # Scan Switches
+    for s in switches:
+        ip = s.get("ip")
+        if not ip:
+            continue
 
-        for neighbor in result["neighbors"]:
-            graph.add_connection(ip, neighbor)
+        result = scan_switch(ip)
+        if result:
+            switch_results.append(result)
 
-    # Save edges
-    for src, dst in graph.graph.edges():
-        if src in device_id_map and dst in device_id_map:
-            save_edge(device_id_map[src], device_id_map[dst])
+    # Merge all scan results
+    scanned_devices = router_results + switch_results
 
-    # Save graph metrics
-    degree = graph.calculate_concentration()
-    between = graph.calculate_critical_nodes()
+    if not scanned_devices:
+        return {
+            "error": "No devices scanned successfully"
+        }
 
-    for ip in degree:
-        if ip in device_id_map:
-            save_metrics(
-                device_id_map[ip],
-                degree[ip],
-                between.get(ip, 0.0)
-            )
+    # Device processing (graph + DB)
+    device_context = process_device(scanned_devices)
 
-    return {"status": "scan_saved"}
+    # Reporting (CVE + Risk + Dashboard)
+    dashboard_json = build_report(device_context)
+
+    return dashboard_json
 
